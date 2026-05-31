@@ -294,3 +294,4 @@ C:\Users\UJED\Documents\TrabajoRedes - copia\winProyComunicacion1 - copia\obj\De
 C:\Users\UJED\Documents\TrabajoRedes - copia\winProyComunicacion1 - copia\obj\Debug\net8.0-windows\winProyComunicacion.pdb
 C:\Users\UJED\Documents\TrabajoRedes - copia\winProyComunicacion1 - copia\obj\Debug\net8.0-windows\winProyComunicacion.genruntimeconfig.cache
 C:\Users\UJED\Documents\TrabajoRedes - copia\winProyComunicacion1 - copia\obj\Debug\net8.0-windows\ref\winProyComunicacion.dll
+C:\Users\UJED\Documents\TrabajoRedes - copia\winProyComunicacion1 - copia\obj\Debug\net8.0-windows\winProyComunicacion.sourcelink.json

@@ -47,7 +47,6 @@
             txtMensaje.Name = "txtMensaje";
             txtMensaje.Size = new Size(225, 131);
             txtMensaje.TabIndex = 0;
-            txtMensaje.TextChanged += txtMensaje_TextChanged;
             txtMensaje.KeyDown += txtMensaje_KeyDown;
             // 
             // btnEnviaMensaje
@@ -70,7 +69,6 @@
             rchConversacion.Size = new Size(182, 284);
             rchConversacion.TabIndex = 2;
             rchConversacion.Text = "";
-            rchConversacion.TextChanged += rchConversacion_TextChanged;
             // 
             // cmbVelocidad
             // 
@@ -80,7 +78,6 @@
             cmbVelocidad.Name = "cmbVelocidad";
             cmbVelocidad.Size = new Size(74, 23);
             cmbVelocidad.TabIndex = 3;
-            cmbVelocidad.SelectedIndexChanged += comboBox1_SelectedIndexChanged;
             // 
             // cmbPuerto
             // 
@@ -90,7 +87,6 @@
             cmbPuerto.Name = "cmbPuerto";
             cmbPuerto.Size = new Size(74, 23);
             cmbPuerto.TabIndex = 4;
-            cmbPuerto.SelectedIndexChanged += comboBox1_SelectedIndexChanged_1;
             // 
             // btnConectar
             // 
@@ -121,7 +117,6 @@
             prgArchivo.Name = "prgArchivo";
             prgArchivo.Size = new Size(57, 14);
             prgArchivo.TabIndex = 7;
-            prgArchivo.Click += progressBar1_Click;
             // 
             // label1
             // 
@@ -132,7 +127,6 @@
             label1.Size = new Size(156, 15);
             label1.TabIndex = 8;
             label1.Text = "Configuracion de Conexion:";
-            label1.Click += label1_Click_1;
             // 
             // Form1
             // 
