@@ -9,6 +9,16 @@ using System.IO;
 
 namespace winProyComunicacion
 {
+    // Clase para representar un archivo en la cola de envío
+    public class ArchivoEnCola
+    {
+        public string Ruta { get; set; }
+        public string Nombre { get; set; }
+        public long Tamaño { get; set; }
+        public int Estado { get; set; } // 0: Pendiente, 1: Enviando, 2: Completado, 3: Error
+        public string MensajeError { get; set; }
+    }
+
     internal class classComunicacion
     {
         public SerialPort sPuerto;
@@ -25,6 +35,14 @@ namespace winProyComunicacion
         public delegate void solicitudGuardadoArchivo(string nombreArchivo, long tamaño);
         public event solicitudGuardadoArchivo onSolicitudGuardado;
 
+        // Eventos para la cola de envío
+        public delegate void colaActualizada(int pendientes, int enviando, int completados);
+        public event colaActualizada onColaActualizada;
+
+        // Evento de progreso modificado para incluir información de cola
+        public delegate void progresoArchivoConCola(int p, long totalEnviado, long totalCola);
+        public event progresoArchivoConCola progresoConCola;
+
         private string rutaGuardadoArchivo = null;
         private bool esperandoRutaGuardado = false;
 
@@ -40,6 +58,12 @@ namespace winProyComunicacion
         private Thread hebraRecepcion;
         private bool recibiendoArchivo = false;
         private bool recepcionIniciada = false;
+
+        // Cola de envío secuencial
+        private Queue<ArchivoEnCola> colaEnvio = new Queue<ArchivoEnCola>();
+        private Thread hebraProcesadorCola;
+        private bool procesadorColaActivo = false;
+        private object lockCola = new object();
 
         public classComunicacion()
         {
@@ -184,23 +208,25 @@ namespace winProyComunicacion
                     totalCabecera += sPuerto.Read(datosCabecera, totalCabecera, longitudCabecera - totalCabecera);
                 }
 
-                // Validar longitud mínima (4 bytes longitud + 8 bytes tamaño = 12 bytes mínimo)
-                if (datosCabecera.Length < 12)
+                // Validar longitud mínima (4 bytes longitud + 8 bytes tamaño + 8 bytes cola = 20 bytes mínimo)
+                if (datosCabecera.Length < 20)
                     throw new Exception("Cabecera de archivo demasiado corta");
 
-                // Formato binario: [4 bytes longitud nombre][nombre][8 bytes tamaño]
+                // Formato binario: [4 bytes longitud nombre][nombre][8 bytes tamaño][4 bytes total archivos][4 bytes índice actual]
                 int longitudNombre = BitConverter.ToInt32(datosCabecera, 0);
 
                 // Validar que la longitud del nombre es razonable
                 if (longitudNombre < 0 || longitudNombre > 255)
                     throw new Exception("Longitud de nombre de archivo inválida");
 
-                // Validar que hay suficientes bytes para leer el nombre y el tamaño
-                if (datosCabecera.Length < 4 + longitudNombre + 8)
+                // Validar que hay suficientes bytes para leer el nombre, tamaño y cola
+                if (datosCabecera.Length < 4 + longitudNombre + 8 + 8)
                     throw new Exception("Cabecera de archivo incompleta");
 
                 string nombre = Encoding.UTF8.GetString(datosCabecera, 4, longitudNombre);
                 long tamaño = BitConverter.ToInt64(datosCabecera, 4 + longitudNombre);
+                int totalArchivos = BitConverter.ToInt32(datosCabecera, 4 + longitudNombre + 8);
+                int indiceActual = BitConverter.ToInt32(datosCabecera, 4 + longitudNombre + 8 + 4);
 
                 esperandoRutaGuardado = true;
                 onSolicitudGuardado(nombre, tamaño);
@@ -297,7 +323,15 @@ namespace winProyComunicacion
                     }
                 }
 
-                onLlegomensaje("[Archivo recibido] " + nombre);
+                // Mostrar información de la cola si hay múltiples archivos
+                if (totalArchivos > 1)
+                {
+                    onLlegomensaje($"[Archivo {indiceActual} de {totalArchivos} recibido] {nombre} ({FormatBytes(tamaño)})");
+                }
+                else
+                {
+                    onLlegomensaje($"[Archivo recibido] {nombre} ({FormatBytes(tamaño)})");
+                }
 
                 string extension = Path.GetExtension(nombre).ToLower();
                 string[] extensionesImagen = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif" };
@@ -412,23 +446,147 @@ namespace winProyComunicacion
 
         public void EnviarArchivo(string ruta)
         {
-            if (enviandoArchivo)
-            {
-                onLlegomensaje("[Error] Ya se está enviando un archivo");
-                return;
-            }
-
             if (!File.Exists(ruta))
             {
                 onLlegomensaje("[Error] El archivo no existe");
                 return;
             }
 
-            rutaArchivoEnvio = ruta;
-            enviandoArchivo = true;
+            FileInfo info = new FileInfo(ruta);
+            ArchivoEnCola archivo = new ArchivoEnCola
+            {
+                Ruta = ruta,
+                Nombre = info.Name,
+                Tamaño = info.Length,
+                Estado = 0 // Pendiente
+            };
 
-            hebraArchivo = new Thread(EnviandoArchivo);
-            hebraArchivo.Start();
+            lock (lockCola)
+            {
+                colaEnvio.Enqueue(archivo);
+            }
+
+            onLlegomensaje($"[Cola] Archivo agregado: {archivo.Nombre} ({FormatBytes(archivo.Tamaño)})");
+
+            // Iniciar procesador de cola si no está activo
+            if (!procesadorColaActivo)
+            {
+                IniciarProcesadorCola();
+            }
+
+            ActualizarEstadoCola();
+        }
+
+        private string FormatBytes(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            int order = 0;
+            double size = bytes;
+            while (size >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                size /= 1024;
+            }
+            return $"{size:0.##} {sizes[order]}";
+        }
+
+        private void IniciarProcesadorCola()
+        {
+            procesadorColaActivo = true;
+            hebraProcesadorCola = new Thread(ProcesarCola);
+            hebraProcesadorCola.IsBackground = true;
+            hebraProcesadorCola.Start();
+        }
+
+        private void ProcesarCola()
+        {
+            while (procesadorColaActivo)
+            {
+                ArchivoEnCola archivoActual = null;
+
+                lock (lockCola)
+                {
+                    if (colaEnvio.Count > 0)
+                    {
+                        archivoActual = colaEnvio.Peek();
+                    }
+                }
+
+                if (archivoActual != null && !enviandoArchivo)
+                {
+                    // Marcar como enviando
+                    archivoActual.Estado = 1; // Enviando
+                    ActualizarEstadoCola();
+
+                    // Enviar el archivo
+                    rutaArchivoEnvio = archivoActual.Ruta;
+                    enviandoArchivo = true;
+
+                    onLlegomensaje($"[Cola] Enviando: {archivoActual.Nombre}");
+
+                    try
+                    {
+                        EnviandoArchivo();
+
+                        // Marcar como completado
+                        archivoActual.Estado = 2; // Completado
+                        onLlegomensaje($"[Cola] Completado: {archivoActual.Nombre}");
+
+                        // Remover de la cola
+                        lock (lockCola)
+                        {
+                            colaEnvio.Dequeue();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Marcar como error
+                        archivoActual.Estado = 3; // Error
+                        archivoActual.MensajeError = ex.Message;
+                        onLlegomensaje($"[Cola] Error en {archivoActual.Nombre}: {ex.Message}");
+
+                        // Remover de la cola
+                        lock (lockCola)
+                        {
+                            colaEnvio.Dequeue();
+                        }
+                    }
+                    finally
+                    {
+                        enviandoArchivo = false;
+                        ActualizarEstadoCola();
+                    }
+                }
+                else if (colaEnvio.Count == 0)
+                {
+                    // No hay más archivos en la cola
+                    procesadorColaActivo = false;
+                    onLlegomensaje("[Cola] Todos los archivos han sido procesados");
+                    break;
+                }
+
+                Thread.Sleep(100);
+            }
+        }
+
+        private void ActualizarEstadoCola()
+        {
+            lock (lockCola)
+            {
+                int pendientes = colaEnvio.Count(x => x.Estado == 0);
+                int enviando = colaEnvio.Count(x => x.Estado == 1);
+                int completados = colaEnvio.Count(x => x.Estado == 2);
+
+                onColaActualizada?.Invoke(pendientes, enviando, completados);
+            }
+        }
+
+        public List<ArchivoEnCola> ObtenerEstadoCola()
+        {
+            lock (lockCola)
+            {
+                return colaEnvio.ToList();
+            }
         }
 
         private void EnviandoArchivo()
@@ -444,14 +602,39 @@ namespace winProyComunicacion
                     string nombre = info.Name;
                     long tamaño = fs.Length; // Tomamos el tamaño del archivo ya protegido
 
-                    // Formato binario: [4 bytes longitud nombre][nombre][8 bytes tamaño]
+                    // Formato binario: [4 bytes longitud nombre][nombre][8 bytes tamaño][4 bytes total archivos][4 bytes índice actual]
                     byte[] nombreBytes = Encoding.UTF8.GetBytes(nombre);
                     byte[] tamañoBytes = BitConverter.GetBytes(tamaño);
 
-                    byte[] datosCabecera = new byte[4 + nombreBytes.Length + 8];
+                    // Obtener información de la cola
+                    int totalArchivos = 0;
+                    int indiceActual = 0;
+
+                    lock (lockCola)
+                    {
+                        totalArchivos = colaEnvio.Count;
+                        // Encontrar el índice del archivo actual
+                        int index = 0;
+                        foreach (var archivo in colaEnvio)
+                        {
+                            if (archivo.Ruta == rutaArchivoEnvio)
+                            {
+                                indiceActual = index + 1; // 1-based index
+                                break;
+                            }
+                            index++;
+                        }
+                    }
+
+                    byte[] totalBytes = BitConverter.GetBytes(totalArchivos);
+                    byte[] indiceBytes = BitConverter.GetBytes(indiceActual);
+
+                    byte[] datosCabecera = new byte[4 + nombreBytes.Length + 8 + 4 + 4];
                     BitConverter.GetBytes(nombreBytes.Length).CopyTo(datosCabecera, 0);
                     nombreBytes.CopyTo(datosCabecera, 4);
                     tamañoBytes.CopyTo(datosCabecera, 4 + nombreBytes.Length);
+                    totalBytes.CopyTo(datosCabecera, 4 + nombreBytes.Length + 8);
+                    indiceBytes.CopyTo(datosCabecera, 4 + nombreBytes.Length + 8 + 4);
 
                     byte[] cabecera = Encoding.UTF8.GetBytes("A" + datosCabecera.Length.ToString("D8"));
 
@@ -531,10 +714,34 @@ namespace winProyComunicacion
                         enviados += leidos;
                         int porcentaje = (int)((enviados * 100) / tamaño);
 
+                        // Calcular progreso total de la cola
+                        long totalCola = 0;
+                        long totalEnviadoCola = 0;
+
+                        lock (lockCola)
+                        {
+                            foreach (var archivo in colaEnvio)
+                            {
+                                totalCola += archivo.Tamaño;
+
+                                if (archivo.Estado == 2) // Completado
+                                {
+                                    totalEnviadoCola += archivo.Tamaño;
+                                }
+                                else if (archivo.Estado == 1) // Enviando
+                                {
+                                    totalEnviadoCola += enviados;
+                                }
+                            }
+                        }
+
+                        int porcentajeTotal = totalCola > 0 ? (int)((totalEnviadoCola * 100) / totalCola) : 0;
+
                         // Solo actualizamos la barra si el número cambió
                         if (porcentaje != ultimoPorcentaje)
                         {
                             onProgreso(porcentaje);
+                            progresoConCola?.Invoke(porcentajeTotal, totalEnviadoCola, totalCola);
                             ultimoPorcentaje = porcentaje;
                         }
                     }
@@ -588,6 +795,7 @@ namespace winProyComunicacion
             enviandoArchivo = false;
             recibiendoArchivo = false;
             esperandoRutaGuardado = false;
+            procesadorColaActivo = false;
 
             if (hebraArchivo != null && hebraArchivo.IsAlive)
             {
@@ -598,6 +806,20 @@ namespace winProyComunicacion
             {
                 hebraRecepcion.Join(1000);
             }
+
+            if (hebraProcesadorCola != null && hebraProcesadorCola.IsAlive)
+            {
+                hebraProcesadorCola.Join(1000);
+            }
+
+            // Limpiar la cola
+            lock (lockCola)
+            {
+                colaEnvio.Clear();
+            }
+
+            onLlegomensaje("[Cola] Envío detenido, cola limpiada");
+            ActualizarEstadoCola();
         }
 
         private void EnviarRespuestaArchivo(bool aceptado)

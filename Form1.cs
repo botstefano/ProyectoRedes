@@ -19,7 +19,6 @@ namespace winProyComunicacion
             InitializeComponent();
             Enlace = new classComunicacion();
             MostrarMensaje = new AccesoControl(MostrandoMensaje);
-            this.MinimumSize = new Size(700, 500);
             this.FormClosing += Form1_FormClosing;
         }
 
@@ -42,6 +41,8 @@ namespace winProyComunicacion
             Enlace.progreso += Enlace_progreso;
             Enlace.handshakeResultado += Enlace_handshakeResultado;
             Enlace.onSolicitudGuardado += Enlace_onSolicitudGuardado;
+            Enlace.onColaActualizada += Enlace_onColaActualizada;
+            Enlace.progresoConCola += Enlace_progresoConCola;
 
             // 2 Lentas
             cmbVelocidad.Items.Add("2400");
@@ -353,36 +354,69 @@ namespace winProyComunicacion
 
             OpenFileDialog abrir = new OpenFileDialog();
             abrir.Filter = "Todos los archivos|*.*";
+            abrir.Multiselect = true; // Permitir selección múltiple
 
             if (abrir.ShowDialog() == DialogResult.OK)
             {
-                FileInfo info = new FileInfo(abrir.FileName);
-                long tamaño = info.Length;
-                string tiempoEstimado = CalcularTiempoEstimado(tamaño, velocidadActual);
-
-                DialogResult resultado = DialogResult.Yes;
-
-                if (tamaño > 1024 * 1024)
+                foreach (string archivo in abrir.FileNames)
                 {
-                    string mensaje = $"El archivo tiene un tamaño de {tamaño / 1024.0 / 1024.0:F2} MB.\n" +
-                                     $"Tiempo estimado de transferencia: {tiempoEstimado}\n" +
-                                     $"¿Desea continuar?";
-                    resultado = MessageBox.Show(mensaje, "Advertencia: Archivo grande",
-                                                MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-                }
+                    FileInfo info = new FileInfo(archivo);
+                    long tamaño = info.Length;
+                    string tiempoEstimado = CalcularTiempoEstimado(tamaño, velocidadActual);
 
-                if (resultado == DialogResult.Yes)
-                {
+                    DialogResult resultado = DialogResult.Yes;
+
+                    if (tamaño > 1024 * 1024)
+                    {
+                        string mensaje = $"El archivo tiene un tamaño de {tamaño / 1024.0 / 1024.0:F2} MB.\n" +
+                                         $"Tiempo estimado de transferencia: {tiempoEstimado}\n" +
+                                         $"¿Desea continuar?";
+                        resultado = MessageBox.Show(mensaje, "Advertencia: Archivo grande",
+                                                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                        if (resultado != DialogResult.Yes)
+                            continue;
+                    }
+
                     prgArchivo.Value = 0;
-                    Enlace.EnviarArchivo(abrir.FileName);
+                    Enlace.EnviarArchivo(archivo);
 
                     AgregarMensajeFormateado(
                         "YO",
-                        $"Archivo enviado: {Path.GetFileName(abrir.FileName)} ({tamaño / 1024.0 / 1024.0:F2} MB, Tiempo estimado: {tiempoEstimado})",
+                        $"Archivo enviado: {Path.GetFileName(archivo)} ({tamaño / 1024.0 / 1024.0:F2} MB, Tiempo estimado: {tiempoEstimado})",
                         Color.Blue,
                         HorizontalAlignment.Right);
                 }
             }
+        }
+
+        private void Enlace_onColaActualizada(int pendientes, int enviando, int completados)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<int, int, int>(Enlace_onColaActualizada), pendientes, enviando, completados);
+                return;
+            }
+
+            string estadoCola = $"[Cola] Pendientes: {pendientes} | Enviando: {enviando} | Completados: {completados}";
+            AgregarMensajeFormateado("SISTEMA", estadoCola, Color.Gray, HorizontalAlignment.Center);
+        }
+
+        private void Enlace_progresoConCola(int porcentajeTotal, long totalEnviado, long totalCola)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<int, long, long>(Enlace_progresoConCola), porcentajeTotal, totalEnviado, totalCola);
+                return;
+            }
+
+            // Actualizar la progress bar con el progreso total de la cola
+            prgArchivo.Value = porcentajeTotal;
+        }
+
+        private void rchConversacion_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }
