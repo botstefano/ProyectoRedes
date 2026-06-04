@@ -1724,11 +1724,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\winProyComunicacion.csproj",
+      "projectUniqueName": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\winProyComunicacion.csproj",
       "projectName": "winProyComunicacion",
-      "projectPath": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\winProyComunicacion.csproj",
+      "projectPath": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\winProyComunicacion.csproj",
       "packagesPath": "C:\\Users\\UJED\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\obj\\",
+      "outputPath": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -1,18 +1,18 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\",
+  "WorkspaceRootPath": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|c:\\users\\ujed\\documents\\trabajoredes - copia\\winproycomunicacion1 - copia\\classcomunicacion.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|c:\\users\\ujed\\documents\\trabajoredes\\winproycomunicacion1 - copia\\winproycomunicacion1 - copia\\classcomunicacion.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|solutionrelative:classcomunicacion.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
-      "RelativeMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|solutionrelative:form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+      "AbsoluteMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|c:\\users\\ujed\\documents\\trabajoredes\\winproycomunicacion1 - copia\\winproycomunicacion1 - copia\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|solutionrelative:form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|c:\\users\\ujed\\documents\\trabajoredes - copia\\winproycomunicacion1 - copia\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|solutionrelative:form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{6576DEAE-1447-4C69-91FA-3D36165563AF}|winProyComunicacion.csproj|solutionrelative:form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     }
   ],
   "DocumentGroupContainers": [
@@ -28,11 +28,11 @@
               "$type": "Document",
               "DocumentIndex": 0,
               "Title": "classComunicacion.cs",
-              "DocumentMoniker": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\classComunicacion.cs",
+              "DocumentMoniker": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\classComunicacion.cs",
               "RelativeDocumentMoniker": "classComunicacion.cs",
-              "ToolTip": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\classComunicacion.cs",
+              "ToolTip": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\classComunicacion.cs",
               "RelativeToolTip": "classComunicacion.cs",
-              "ViewState": "AgIAAHcAAAAAAAAAAAAQwIsAAAAEAAAAAAAAAA==",
+              "ViewState": "AgIAAJgBAAAAAAAAAAAswGoCAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-24T04:21:24.62Z",
               "EditorCaption": ""
@@ -40,25 +40,26 @@
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "Form1.cs [Dise\u00F1o]",
-              "DocumentMoniker": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\Form1.cs",
+              "Title": "Form1.cs",
+              "DocumentMoniker": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\Form1.cs",
               "RelativeDocumentMoniker": "Form1.cs",
-              "ToolTip": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\Form1.cs [Dise\u00F1o]",
-              "RelativeToolTip": "Form1.cs [Dise\u00F1o]",
+              "ToolTip": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\Form1.cs",
+              "RelativeToolTip": "Form1.cs",
+              "ViewState": "AgIAAF0BAAAAAAAAAAAcwHsBAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-24T04:21:19.374Z"
+              "WhenOpened": "2026-05-14T19:39:49.15Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "Form1.cs",
-              "DocumentMoniker": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\Form1.cs",
+              "Title": "Form1.cs [Design]",
+              "DocumentMoniker": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\Form1.cs",
               "RelativeDocumentMoniker": "Form1.cs",
-              "ToolTip": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\Form1.cs",
-              "RelativeToolTip": "Form1.cs",
-              "ViewState": "AgIAAMAAAAAAAAAAAAAIwLAAAAAJAAAAAAAAAA==",
+              "ToolTip": "C:\\Users\\ronan\\OneDrive\\Documentos\\CICLO 9\\Redes 1\\winProyComunicacion1 - copia\\Form1.cs [Design]",
+              "RelativeToolTip": "..\\..\\..\\..\\..\\ronan\\OneDrive\\Documentos\\CICLO 9\\Redes 1\\winProyComunicacion1 - copia\\Form1.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-14T19:39:49.15Z"
+              "WhenOpened": "2026-05-24T04:21:19.374Z"
             }
           ]
         }

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("winProyComunicacion")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e3e24fe7988d460e0e487c81e31f969146133509")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8793d0db536b28dce70281e9fca1a90d54fcd49c")]
 [assembly: System.Reflection.AssemblyProductAttribute("winProyComunicacion")]
 [assembly: System.Reflection.AssemblyTitleAttribute("winProyComunicacion")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

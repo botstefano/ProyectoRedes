@@ -42,19 +42,21 @@
             // txtMensaje
             // 
             txtMensaje.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
-            txtMensaje.Location = new Point(215, 37);
+            txtMensaje.Location = new Point(246, 49);
+            txtMensaje.Margin = new Padding(3, 4, 3, 4);
             txtMensaje.Multiline = true;
             txtMensaje.Name = "txtMensaje";
-            txtMensaje.Size = new Size(225, 131);
+            txtMensaje.Size = new Size(257, 173);
             txtMensaje.TabIndex = 0;
             txtMensaje.KeyDown += txtMensaje_KeyDown;
             // 
             // btnEnviaMensaje
             // 
             btnEnviaMensaje.Anchor = AnchorStyles.Right;
-            btnEnviaMensaje.Location = new Point(452, 41);
+            btnEnviaMensaje.Location = new Point(517, 55);
+            btnEnviaMensaje.Margin = new Padding(3, 4, 3, 4);
             btnEnviaMensaje.Name = "btnEnviaMensaje";
-            btnEnviaMensaje.Size = new Size(57, 24);
+            btnEnviaMensaje.Size = new Size(74, 32);
             btnEnviaMensaje.TabIndex = 1;
             btnEnviaMensaje.Text = "Enviar";
             btnEnviaMensaje.UseVisualStyleBackColor = true;
@@ -63,10 +65,11 @@
             // rchConversacion
             // 
             rchConversacion.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            rchConversacion.Location = new Point(12, 28);
+            rchConversacion.Location = new Point(14, 37);
+            rchConversacion.Margin = new Padding(3, 4, 3, 4);
             rchConversacion.Name = "rchConversacion";
             rchConversacion.ReadOnly = true;
-            rchConversacion.Size = new Size(182, 284);
+            rchConversacion.Size = new Size(207, 377);
             rchConversacion.TabIndex = 2;
             rchConversacion.Text = "";
             // 
@@ -74,26 +77,29 @@
             // 
             cmbVelocidad.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             cmbVelocidad.FormattingEnabled = true;
-            cmbVelocidad.Location = new Point(380, 183);
+            cmbVelocidad.Location = new Point(447, 244);
+            cmbVelocidad.Margin = new Padding(3, 4, 3, 4);
             cmbVelocidad.Name = "cmbVelocidad";
-            cmbVelocidad.Size = new Size(74, 23);
+            cmbVelocidad.Size = new Size(84, 28);
             cmbVelocidad.TabIndex = 3;
             // 
             // cmbPuerto
             // 
             cmbPuerto.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             cmbPuerto.FormattingEnabled = true;
-            cmbPuerto.Location = new Point(380, 212);
+            cmbPuerto.Location = new Point(447, 285);
+            cmbPuerto.Margin = new Padding(3, 4, 3, 4);
             cmbPuerto.Name = "cmbPuerto";
-            cmbPuerto.Size = new Size(74, 23);
+            cmbPuerto.Size = new Size(84, 28);
             cmbPuerto.TabIndex = 4;
             // 
             // btnConectar
             // 
             btnConectar.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            btnConectar.Location = new Point(378, 241);
+            btnConectar.Location = new Point(447, 321);
+            btnConectar.Margin = new Padding(3, 4, 3, 4);
             btnConectar.Name = "btnConectar";
-            btnConectar.Size = new Size(76, 24);
+            btnConectar.Size = new Size(87, 32);
             btnConectar.TabIndex = 5;
             btnConectar.Text = "Conectar";
             btnConectar.UseVisualStyleBackColor = true;
@@ -102,9 +108,10 @@
             // btnEnviarArchivo
             // 
             btnEnviarArchivo.Anchor = AnchorStyles.Right;
-            btnEnviarArchivo.Location = new Point(452, 70);
+            btnEnviarArchivo.Location = new Point(517, 93);
+            btnEnviarArchivo.Margin = new Padding(3, 4, 3, 4);
             btnEnviarArchivo.Name = "btnEnviarArchivo";
-            btnEnviarArchivo.Size = new Size(57, 50);
+            btnEnviarArchivo.Size = new Size(74, 67);
             btnEnviarArchivo.TabIndex = 6;
             btnEnviarArchivo.Text = "Enviar Archivo";
             btnEnviarArchivo.UseVisualStyleBackColor = true;
@@ -113,26 +120,27 @@
             // prgArchivo
             // 
             prgArchivo.Anchor = AnchorStyles.Right;
-            prgArchivo.Location = new Point(452, 139);
+            prgArchivo.Location = new Point(517, 185);
+            prgArchivo.Margin = new Padding(3, 4, 3, 4);
             prgArchivo.Name = "prgArchivo";
-            prgArchivo.Size = new Size(57, 14);
+            prgArchivo.Size = new Size(65, 19);
             prgArchivo.TabIndex = 7;
             // 
             // label1
             // 
             label1.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             label1.AutoSize = true;
-            label1.Location = new Point(218, 183);
+            label1.Location = new Point(249, 244);
             label1.Name = "label1";
-            label1.Size = new Size(156, 15);
+            label1.Size = new Size(192, 20);
             label1.TabIndex = 8;
             label1.Text = "Configuracion de Conexion:";
             // 
             // Form1
             // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(528, 332);
+            ClientSize = new Size(603, 443);
             Controls.Add(label1);
             Controls.Add(prgArchivo);
             Controls.Add(btnEnviarArchivo);
@@ -142,6 +150,7 @@
             Controls.Add(rchConversacion);
             Controls.Add(btnEnviaMensaje);
             Controls.Add(txtMensaje);
+            Margin = new Padding(3, 4, 3, 4);
             Name = "Form1";
             Text = "Form1";
             Load += Form1_Load;

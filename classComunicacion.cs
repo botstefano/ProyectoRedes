@@ -7,8 +7,6 @@ using System.IO.Ports;
 using System.Threading;
 using System.IO;
 
-
-
 namespace winProyComunicacion
 {
     internal class classComunicacion
@@ -17,22 +15,31 @@ namespace winProyComunicacion
 
         public delegate void miManejador(string m);
         public event miManejador llegoMensaje;
+
         public delegate void progresoArchivo(int p);
         public event progresoArchivo progreso;
+
         public delegate void handshakeCallback(bool exito, int velocidadRemota);
         public event handshakeCallback handshakeResultado;
+
         public delegate void solicitudGuardadoArchivo(string nombreArchivo, long tamaño);
         public event solicitudGuardadoArchivo onSolicitudGuardado;
 
         private string rutaGuardadoArchivo = null;
         private bool esperandoRutaGuardado = false;
 
-
         private string rutaArchivoEnvio;
         private Thread hebraArchivo;
         private bool enviandoArchivo = false;
         private int velocidadLocal = 0;
         private bool handshakeCompletado = false;
+        private bool esperandoRespuestaArchivo = false;
+        private bool archivoAceptado = false;
+
+        // Variables para hilo de recepción de archivos
+        private Thread hebraRecepcion;
+        private bool recibiendoArchivo = false;
+        private bool recepcionIniciada = false;
 
         public classComunicacion()
         {
@@ -49,71 +56,73 @@ namespace winProyComunicacion
                 sPuerto.DataBits = 8;
                 sPuerto.StopBits = StopBits.One;
                 sPuerto.Parity = Parity.None;
-                sPuerto.ReadBufferSize = 65536;// buffer más grande para archivos grandes
-                sPuerto.WriteBufferSize = 65536;
-                sPuerto.ReadTimeout = 300000;// 5 minutos timeout para archivos grandes
-                sPuerto.WriteTimeout = 300000;
+                sPuerto.ReadBufferSize = 262144; // 256KB
+                sPuerto.WriteBufferSize = 262144; // 256KB
+                sPuerto.ReadTimeout = 1800000; // 30 minutos para archivos grandes
+                sPuerto.WriteTimeout = 1800000; // 30 minutos para archivos grandes
                 sPuerto.Open();
-
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error al inicializar puerto: {ex.Message}");
             }
-
         }
 
         private void SPuerto_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
+            // Ignorar eventos si estamos recibiendo un archivo (manejado por el hilo separado)
+            if (recibiendoArchivo)
+                return;
+
             try
             {
-                byte[] cabecera =
-                    new byte[9];
-
+                byte[] cabecera = new byte[9];
                 int leidos = 0;
 
                 while (leidos < 9)
                 {
-                    leidos += sPuerto.Read(
-                        cabecera,
-                        leidos,
-                        9 - leidos);
+                    leidos += sPuerto.Read(cabecera, leidos, 9 - leidos);
                 }
 
-                string tipo =
-                    Encoding.UTF8.GetString(
-                        cabecera,
-                        0,
-                        1);
+                string tipo = Encoding.UTF8.GetString(cabecera, 0, 1);
 
-                int longitud =
-                    Convert.ToInt32(
-                        Encoding.UTF8.GetString(
-                            cabecera,
-                            1,
-                            8));
+                int longitud;
+                try
+                {
+                    string longitudStr = Encoding.UTF8.GetString(cabecera, 1, 8);
+                    onLlegomensaje($"[DEBUG] Tipo: {tipo}, Longitud recibida: '{longitudStr}'");
+                    longitud = Convert.ToInt32(longitudStr);
+                }
+                catch (FormatException)
+                {
+                    string longitudStr = Encoding.UTF8.GetString(cabecera, 1, 8);
+                    onLlegomensaje($"[Error] Formato de longitud inválido en cabecera: '{longitudStr}'");
+                    return;
+                }
 
                 switch (tipo)
                 {
                     case "H":
-
-                        RecibiendoHandshake(
-                            longitud);
-
+                        RecibiendoHandshake(longitud);
                         break;
 
                     case "M":
-
-                        RecibiendoMensaje(
-                            longitud);
-
+                        RecibiendoMensaje(longitud);
                         break;
 
                     case "A":
+                        // Iniciar hilo separado para recepción de archivos
+                        if (!recibiendoArchivo)
+                        {
+                            recibiendoArchivo = true;
+                            hebraRecepcion = new Thread(() => RecibiendoArchivoEnHilo(longitud));
+                            hebraRecepcion.IsBackground = true;
+                            hebraRecepcion.Start();
+                        }
+                        break;
 
-                        RecibiendoArchivo(
-                            longitud);
-
+                    case "F":
+                        RecibiendoRespuestaArchivo(longitud);
                         break;
                 }
             }
@@ -123,12 +132,9 @@ namespace winProyComunicacion
             }
         }
 
-        private void RecibiendoMensaje(
-    int longitud)
+        private void RecibiendoMensaje(int longitud)
         {
-            byte[] datos =
-                new byte[longitud];
-
+            byte[] datos = new byte[longitud];
             int total = 0;
             int intentos = 0;
             const int MAX_INTENTOS = 10;
@@ -137,16 +143,15 @@ namespace winProyComunicacion
             {
                 try
                 {
-                    int leidos = sPuerto.Read(
-                        datos,
-                        total,
-                        longitud - total);
+                    int leidos = sPuerto.Read(datos, total, longitud - total);
+
                     if (leidos <= 0)
                     {
                         intentos++;
                         Thread.Sleep(100);
                         continue;
                     }
+
                     total += leidos;
                     intentos = 0;
                 }
@@ -163,171 +168,156 @@ namespace winProyComunicacion
                 return;
             }
 
-            string mensaje =
-                Encoding.UTF8.GetString(
-                    datos);
-
-            onLlegomensaje(
-                mensaje);
+            string mensaje = Encoding.UTF8.GetString(datos);
+            onLlegomensaje(mensaje);
         }
 
-        private void RecibiendoArchivo(int longitudCabecera)
+        private void RecibiendoArchivoEnHilo(int longitudCabecera)
         {
             try
             {
-                byte[] datosCabecera =
-                    new byte[longitudCabecera];
-
+                byte[] datosCabecera = new byte[longitudCabecera];
                 int totalCabecera = 0;
 
                 while (totalCabecera < longitudCabecera)
                 {
-                    totalCabecera += sPuerto.Read(
-                        datosCabecera,
-                        totalCabecera,
-                        longitudCabecera - totalCabecera);
+                    totalCabecera += sPuerto.Read(datosCabecera, totalCabecera, longitudCabecera - totalCabecera);
                 }
 
-                string datos =
-                    Encoding.UTF8.GetString(
-                        datosCabecera);
+                // Validar longitud mínima (4 bytes longitud + 8 bytes tamaño = 12 bytes mínimo)
+                if (datosCabecera.Length < 12)
+                    throw new Exception("Cabecera de archivo demasiado corta");
 
-                string[] partes =
-                    datos.Split('|');
+                // Formato binario: [4 bytes longitud nombre][nombre][8 bytes tamaño]
+                int longitudNombre = BitConverter.ToInt32(datosCabecera, 0);
 
-                if (partes.Length < 2)
-                {
-                    throw new Exception("Formato de cabecera de archivo inválido");
-                }
+                // Validar que la longitud del nombre es razonable
+                if (longitudNombre < 0 || longitudNombre > 255)
+                    throw new Exception("Longitud de nombre de archivo inválida");
 
-                string nombre =
-                    partes[0];
+                // Validar que hay suficientes bytes para leer el nombre y el tamaño
+                if (datosCabecera.Length < 4 + longitudNombre + 8)
+                    throw new Exception("Cabecera de archivo incompleta");
 
-                if (!long.TryParse(partes[1], out long tamaño))
-                {
-                    throw new Exception("Tamaño de archivo inválido");
-                }
+                string nombre = Encoding.UTF8.GetString(datosCabecera, 4, longitudNombre);
+                long tamaño = BitConverter.ToInt64(datosCabecera, 4 + longitudNombre);
 
-                // Solicitar al usuario dónde guardar el archivo
                 esperandoRutaGuardado = true;
                 onSolicitudGuardado(nombre, tamaño);
 
-                // Esperar a que el usuario seleccione la ruta (máximo 5 minutos)
-            
                 int timeoutEspera = 0;
-                while (esperandoRutaGuardado && timeoutEspera < 3000)
+                while (esperandoRutaGuardado && timeoutEspera < 600)
                 {
                     Thread.Sleep(100);
                     timeoutEspera++;
                 }
 
-                if (esperandoRutaGuardado || string.IsNullOrEmpty(rutaGuardadoArchivo))
-                {
-                    throw new Exception("No se seleccionó ubicación para guardar el archivo");
-                }
-
+                bool aceptado = false;
                 string ruta = rutaGuardadoArchivo;
-                rutaGuardadoArchivo = null; // Resetear para próximo archivo
+                rutaGuardadoArchivo = null;
+                FileStream fs = null;
+                BinaryWriter binaryWriter = null;
 
-                using (FileStream fs =
-                       new FileStream(
-                           ruta,
-                           FileMode.Create))
+                if (!esperandoRutaGuardado && !string.IsNullOrEmpty(ruta))
                 {
-                    byte[] buffer =
-                        new byte[65536]; // Buffer más grande para archivos grandes
-
-                    long recibidos = 0;
-                    int intentosSinDatos = 0;
-                    const int MAX_INTENTOS_SIN_DATOS = 500; // Aumentado para archivos grandes
-
-                    while (recibidos < tamaño)
+                    try
                     {
-                        int faltan =
-                            (int)Math.Min(
-                                buffer.Length,
-                                tamaño - recibidos);
-
-                        try
-                        {
-                            int leer =
-                                sPuerto.Read(
-                                    buffer,
-                                    0,
-                                    faltan);
-
-                            if (leer <= 0)
-                            {
-                                intentosSinDatos++;
-                                if (intentosSinDatos >= MAX_INTENTOS_SIN_DATOS)
-                                {
-                                    throw new Exception(
-                                        "Timeout: No llegaron más datos después de múltiples intentos");
-                                }
-                                Thread.Sleep(100);
-                                continue;
-                            }
-
-                            intentosSinDatos = 0;
-                            fs.Write(
-                                buffer,
-                                0,
-                                leer);
-
-                            recibidos += leer;
-                            Console.WriteLine(
-                                $"RECIBIDOS: {recibidos}/{tamaño}");
-
-                            onLlegomensaje(
-                                $"Recibidos {recibidos}/{tamaño}");
-
-                            int porcentaje =
-                                (int)((recibidos * 100)
-                                / tamaño);
-
-                            onProgreso(
-                                porcentaje);
-                        }
-                        catch (TimeoutException)
-                        {
-                            intentosSinDatos++;
-                            if (intentosSinDatos >= MAX_INTENTOS_SIN_DATOS)
-                            {
-                                throw new Exception(
-                                    "Timeout: No llegaron más datos después de múltiples intentos");
-                            }
-                        }
+                        fs = new FileStream(ruta, FileMode.Create);
+                        binaryWriter = new BinaryWriter(fs);
+                        aceptado = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        onLlegomensaje("[Error de Sistema] No se pudo sobrescribir el archivo. Puede que esté abierto o bloqueado: " + ex.Message);
+                        aceptado = false;
                     }
                 }
 
-                onLlegomensaje(
-                    "[Archivo recibido] " +
-                    nombre);
+                EnviarRespuestaArchivo(aceptado);
 
-                // Detectar tipo de archivo y enviar mensaje especial
+                if (!aceptado)
+                    return;
+
+                // 3. RECIBIMOS LOS DATOS (Ya tenemos el FileStream y BinaryWriter abiertos y listos)
+                try
+                {
+                    byte[] buffer = new byte[4096];
+                    long recibidos = 0;
+                    int intentosSinDatos = 0;
+                    const int MAX_INTENTOS = 3000; // 5 minutos (3000 * 100ms)
+
+                    // Variable para no saturar la interfaz
+                    int ultimoPorcentaje = -1;
+
+                    while (recibidos < tamaño && recibiendoArchivo)
+                    {
+                        // Verificar si hay datos disponibles antes de leer
+                        if (sPuerto.BytesToRead > 0)
+                        {
+                            int faltan = (int)Math.Min(buffer.Length, tamaño - recibidos);
+                            // No leer más de lo disponible en el buffer
+                            faltan = (int)Math.Min(faltan, sPuerto.BytesToRead);
+                            int leer = sPuerto.Read(buffer, 0, faltan);
+
+                            if (leer > 0)
+                            {
+                                binaryWriter.Write(buffer, 0, leer);
+                                recibidos += leer;
+                                intentosSinDatos = 0;
+
+                                int porcentaje = (int)((recibidos * 100) / tamaño);
+
+                                // Solo actualizamos la barra si el número cambió
+                                if (porcentaje != ultimoPorcentaje)
+                                {
+                                    onProgreso(porcentaje);
+                                    ultimoPorcentaje = porcentaje;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            intentosSinDatos++;
+                            if (intentosSinDatos > MAX_INTENTOS)
+                                throw new Exception("Timeout leyendo datos");
+                            Thread.Sleep(100);
+                        }
+                    }
+                }
+                finally
+                {
+                    // Cerrar el BinaryWriter y FileStream
+                    binaryWriter?.Dispose();
+                    fs?.Dispose();
+
+                    // Limpiamos la tubería de entrada de cualquier residuo fantasma
+                    if (sPuerto != null && sPuerto.IsOpen)
+                    {
+                        sPuerto.DiscardInBuffer();
+                    }
+                }
+
+                onLlegomensaje("[Archivo recibido] " + nombre);
+
                 string extension = Path.GetExtension(nombre).ToLower();
                 string[] extensionesImagen = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif" };
                 string[] extensionesVideo = { ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".m4v" };
                 string[] extensionesAudio = { ".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".wma" };
-                
+
                 if (extensionesImagen.Contains(extension))
-                {
                     onLlegomensaje("[IMG]" + ruta);
-                }
                 else if (extensionesVideo.Contains(extension))
-                {
                     onLlegomensaje("[VIDEO]" + ruta);
-                }
                 else if (extensionesAudio.Contains(extension))
-                {
                     onLlegomensaje("[AUDIO]" + ruta);
-                }
             }
             catch (Exception ex)
             {
-                onLlegomensaje(
-                    "[Error al recibir archivo] " +
-                    ex.Message);
+                onLlegomensaje("[Error al recibir archivo] " + ex.Message);
+            }
+            finally
+            {
+                recibiendoArchivo = false;
             }
         }
 
@@ -369,14 +359,15 @@ namespace winProyComunicacion
                 while (total < longitud)
                 {
                     int leer = sPuerto.Read(datos, total, longitud - total);
+
                     if (leer <= 0)
-                    {
                         throw new Exception("Timeout recibiendo handshake");
-                    }
+
                     total += leer;
                 }
 
                 string velocidadStr = Encoding.UTF8.GetString(datos);
+
                 if (int.TryParse(velocidadStr, out int velocidadRemota))
                 {
                     if (velocidadRemota == velocidadLocal)
@@ -411,25 +402,12 @@ namespace winProyComunicacion
                 return;
             }
 
-            byte[] datos =
-                Encoding.UTF8.GetBytes(m);
+            byte[] datos = Encoding.UTF8.GetBytes(m);
+            string longitud = datos.Length.ToString("D8");
+            byte[] cabecera = Encoding.UTF8.GetBytes("M" + longitud);
 
-            string longitud =
-                datos.Length.ToString("D8");
-
-            byte[] cabecera =
-                Encoding.UTF8.GetBytes(
-                    "M" + longitud);
-
-            sPuerto.Write(
-                cabecera,
-                0,
-                cabecera.Length);
-
-            sPuerto.Write(
-                datos,
-                0,
-                datos.Length);
+            sPuerto.Write(cabecera, 0, cabecera.Length);
+            sPuerto.Write(datos, 0, datos.Length);
         }
 
         public void EnviarArchivo(string ruta)
@@ -450,7 +428,6 @@ namespace winProyComunicacion
             enviandoArchivo = true;
 
             hebraArchivo = new Thread(EnviandoArchivo);
-
             hebraArchivo.Start();
         }
 
@@ -458,57 +435,72 @@ namespace winProyComunicacion
         {
             try
             {
-                FileInfo info = new FileInfo(rutaArchivoEnvio);
-
-                string nombre = info.Name;
-
-                long tamaño = info.Length;
-
-                string cabeceraArchivo =
-                    nombre + "|" + tamaño;
-
-                byte[] datosCabecera =
-                    Encoding.UTF8.GetBytes(cabeceraArchivo);
-
-                byte[] cabecera =
-                    Encoding.UTF8.GetBytes(
-                        "A" +
-                        datosCabecera.Length.ToString("D8"));
-
-                if (!sPuerto.IsOpen)
+                // Abrimos y protegemos el archivo primero (FileShare.Read)
+                // Esto evita que el Receptor pueda vaciarlo accidentalmente a 0MB
+                using (FileStream fs = new FileStream(rutaArchivoEnvio, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (BinaryReader binaryReader = new BinaryReader(fs))
                 {
-                    onLlegomensaje("[Error] El puerto no está abierto");
-                    return;
-                }
+                    FileInfo info = new FileInfo(rutaArchivoEnvio);
+                    string nombre = info.Name;
+                    long tamaño = fs.Length; // Tomamos el tamaño del archivo ya protegido
 
-                sPuerto.Write(cabecera, 0, cabecera.Length);
+                    // Formato binario: [4 bytes longitud nombre][nombre][8 bytes tamaño]
+                    byte[] nombreBytes = Encoding.UTF8.GetBytes(nombre);
+                    byte[] tamañoBytes = BitConverter.GetBytes(tamaño);
 
-                sPuerto.Write(
-                    datosCabecera,
-                    0,
-                    datosCabecera.Length);
+                    byte[] datosCabecera = new byte[4 + nombreBytes.Length + 8];
+                    BitConverter.GetBytes(nombreBytes.Length).CopyTo(datosCabecera, 0);
+                    nombreBytes.CopyTo(datosCabecera, 4);
+                    tamañoBytes.CopyTo(datosCabecera, 4 + nombreBytes.Length);
 
+                    byte[] cabecera = Encoding.UTF8.GetBytes("A" + datosCabecera.Length.ToString("D8"));
 
+                    if (!sPuerto.IsOpen)
+                    {
+                        onLlegomensaje("[Error] El puerto no está abierto");
+                        return;
+                    }
 
-                using (FileStream fs =
-                       new FileStream(
-                           rutaArchivoEnvio,
-                           FileMode.Open,
-                           FileAccess.Read))
-                {
-                    byte[] buffer =
-                        new byte[65536]; // Buffer más grande para archivos grandes
+                    sPuerto.Write(cabecera, 0, cabecera.Length);
+                    sPuerto.Write(datosCabecera, 0, datosCabecera.Length);
 
+                    onLlegomensaje("[SISTEMA] Esperando a que el destinatario acepte el archivo...");
+
+                    esperandoRespuestaArchivo = true;
+                    int timeoutEspera = 0;
+
+                    while (esperandoRespuestaArchivo && timeoutEspera < 600)
+                    {
+                        if (!sPuerto.IsOpen) return;
+                        Thread.Sleep(100);
+                        timeoutEspera++;
+                    }
+
+                    if (esperandoRespuestaArchivo)
+                    {
+                        onLlegomensaje("[Error] El destinatario no respondió a tiempo. Envío cancelado.");
+                        return;
+                    }
+
+                    if (!archivoAceptado)
+                    {
+                        onLlegomensaje("[SISTEMA] El destinatario rechazó el archivo o hubo un bloqueo de sistema.");
+                        return;
+                    }
+
+                    onLlegomensaje("[SISTEMA] Archivo aceptado. Iniciando transferencia...");
+
+                    byte[] buffer = new byte[4096];
                     int leidos;
                     long enviados = 0;
                     int intentosEscritura = 0;
-                    const int MAX_INTENTOS_ESCRITURA = 100; // Aumentado para archivos grandes
+                    const int MAX_INTENTOS_ESCRITURA = 100;
 
-                    while ((leidos =
-                            fs.Read(
-                                buffer,
-                                0,
-                                buffer.Length)) > 0)
+                    // Variable para no saturar la interfaz
+                    int ultimoPorcentaje = -1;
+
+                    // Leemos y enviamos usando BinaryReader
+                    while ((leidos = binaryReader.Read(buffer, 0, buffer.Length)) > 0)
                     {
                         if (!sPuerto.IsOpen)
                         {
@@ -521,12 +513,10 @@ namespace winProyComunicacion
                         {
                             try
                             {
-                                sPuerto.Write(
-                                    buffer,
-                                    0,
-                                    leidos);
+                                sPuerto.Write(buffer, 0, leidos);
                                 escrito = true;
                                 intentosEscritura = 0;
+                                Thread.Sleep(10); // Aumentado para dar tiempo al receptor a procesar
                             }
                             catch (TimeoutException)
                             {
@@ -536,24 +526,20 @@ namespace winProyComunicacion
                         }
 
                         if (!escrito)
-                        {
                             throw new Exception("Timeout escribiendo en puerto serie");
-                        }
 
                         enviados += leidos;
-                        Console.WriteLine(
-                            $"ENVIADOS: {enviados}/{tamaño}");
+                        int porcentaje = (int)((enviados * 100) / tamaño);
 
-                        int porcentaje =
-                            (int)((enviados * 100)
-                            / tamaño);
-
-                        onProgreso(
-                            porcentaje);
+                        // Solo actualizamos la barra si el número cambió
+                        if (porcentaje != ultimoPorcentaje)
+                        {
+                            onProgreso(porcentaje);
+                            ultimoPorcentaje = porcentaje;
+                        }
                     }
                 }
             }
-            
             catch (Exception ex)
             {
                 onLlegomensaje($"[Error al enviar archivo] {ex.Message}");
@@ -561,6 +547,12 @@ namespace winProyComunicacion
             finally
             {
                 enviandoArchivo = false;
+
+                // Limpiamos la tubería de salida al terminar
+                if (sPuerto != null && sPuerto.IsOpen)
+                {
+                    sPuerto.DiscardOutBuffer();
+                }
             }
         }
 
@@ -594,11 +586,51 @@ namespace winProyComunicacion
         public void DetenerEnvio()
         {
             enviandoArchivo = false;
+            recibiendoArchivo = false;
             esperandoRutaGuardado = false;
+
             if (hebraArchivo != null && hebraArchivo.IsAlive)
             {
                 hebraArchivo.Join(1000);
             }
+
+            if (hebraRecepcion != null && hebraRecepcion.IsAlive)
+            {
+                hebraRecepcion.Join(1000);
+            }
+        }
+
+        private void EnviarRespuestaArchivo(bool aceptado)
+        {
+            try
+            {
+                string resp = aceptado ? "1" : "0";
+                byte[] datos = Encoding.UTF8.GetBytes(resp);
+                string longitud = datos.Length.ToString("D8");
+                byte[] cabecera = Encoding.UTF8.GetBytes("F" + longitud);
+
+                sPuerto.Write(cabecera, 0, cabecera.Length);
+                sPuerto.Write(datos, 0, datos.Length);
+            }
+            catch (Exception ex)
+            {
+                onLlegomensaje("[Error al responder] " + ex.Message);
+            }
+        }
+
+        private void RecibiendoRespuestaArchivo(int longitud)
+        {
+            byte[] datos = new byte[longitud];
+            int total = 0;
+
+            while (total < longitud)
+            {
+                total += sPuerto.Read(datos, total, longitud - total);
+            }
+
+            string resp = Encoding.UTF8.GetString(datos);
+            archivoAceptado = (resp == "1");
+            esperandoRespuestaArchivo = false;
         }
 
         ~classComunicacion()
@@ -608,13 +640,3 @@ namespace winProyComunicacion
         }
     }
 }
-
-
-
-
-
-
-
-
-
-

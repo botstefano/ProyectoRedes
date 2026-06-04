@@ -4,6 +4,7 @@ namespace winProyComunicacion
     using System.Drawing;
     using System.Windows.Forms;
     using System.IO;
+
     public partial class Form1 : Form
     {
         classComunicacion Enlace;
@@ -50,27 +51,29 @@ namespace winProyComunicacion
             cmbVelocidad.Items.Add("19200");
             cmbVelocidad.Items.Add("38400");
 
-            // 3 Rápidas
+            // 3 Rápidas estándar
             cmbVelocidad.Items.Add("57600");
             cmbVelocidad.Items.Add("115200");
             cmbVelocidad.Items.Add("230400");
 
+            // Velocidades muy altas (dependen del hardware)
+            cmbVelocidad.Items.Add("460800");
+            cmbVelocidad.Items.Add("921600");
+            cmbVelocidad.Items.Add("1000000");
+            cmbVelocidad.Items.Add("2000000");
+
             cmbVelocidad.SelectedIndex = 4;
 
             string[] puertos = SerialPort.GetPortNames();
-
             cmbPuerto.Items.AddRange(puertos);
 
             if (cmbPuerto.Items.Count > 0)
-            {
                 cmbPuerto.SelectedIndex = 0;
-            }
         }
 
         private void Enlace_llegoMensaje(string m)
         {
-            // throw new NotImplementedException();
-            Invoke(MostrarMensaje, m);
+            this.BeginInvoke(MostrarMensaje, m);
         }
 
         private void Enlace_progreso(int p)
@@ -83,7 +86,7 @@ namespace winProyComunicacion
 
         private void Enlace_handshakeResultado(bool exito, int velocidadRemota)
         {
-            Invoke(new Action(() =>
+            this.BeginInvoke(new Action(() =>
             {
                 if (exito)
                 {
@@ -93,7 +96,12 @@ namespace winProyComunicacion
                 {
                     AgregarMensajeFormateado("SISTEMA", "Handshake fallido - Desconectando...", Color.Red, HorizontalAlignment.Left);
                     MessageBox.Show("Las velocidades no coinciden. Local: " + velocidadActual + ", Remota: " + velocidadRemota);
-                    btnConectar.PerformClick(); // Desconectar
+
+                    Task.Run(() =>
+                    {
+                        Thread.Sleep(100);
+                        this.BeginInvoke(new Action(() => btnConectar.PerformClick()));
+                    });
                 }
             }));
         }
@@ -102,21 +110,27 @@ namespace winProyComunicacion
         {
             Invoke(new Action(() =>
             {
-                SaveFileDialog guardar = new SaveFileDialog();
-                guardar.FileName = nombreArchivo;
-                guardar.Filter = "Todos los archivos|*.*";
-                guardar.Title = $"Guardar archivo recibido ({tamaño / 1024.0:F2} KB)";
+                DialogResult dialogResult = MessageBox.Show(
+                    $"Alguien quiere enviarte el archivo:\n\n{nombreArchivo}\n\nTamaño: {tamaño / 1024.0 / 1024.0:F2} MB\n\n¿Deseas aceptar la descarga?",
+                    "Archivo Entrante", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
 
-                if (guardar.ShowDialog() == DialogResult.OK)
+                if (dialogResult == DialogResult.Yes)
                 {
-                    Enlace.EstablecerRutaGuardado(guardar.FileName);
-                    AgregarMensajeFormateado("SISTEMA", "Guardando archivo en: " + guardar.FileName, Color.Blue, HorizontalAlignment.Left);
+                    SaveFileDialog guardar = new SaveFileDialog();
+                    guardar.FileName = nombreArchivo;
+                    guardar.Filter = "Todos los archivos|*.*";
+                    guardar.Title = "Selecciona dónde guardar el archivo";
+
+                    if (guardar.ShowDialog() == DialogResult.OK)
+                    {
+                        Enlace.EstablecerRutaGuardado(guardar.FileName);
+                        AgregarMensajeFormateado("SISTEMA", "Descarga aceptada. Guardando en: " + guardar.FileName, Color.Blue, HorizontalAlignment.Left);
+                        return;
+                    }
                 }
-                else
-                {
-                    Enlace.EstablecerRutaGuardado(null); // Cancelar
-                    AgregarMensajeFormateado("SISTEMA", "Guardado de archivo cancelado", Color.Orange, HorizontalAlignment.Left);
-                }
+
+                Enlace.EstablecerRutaGuardado(null);
+                AgregarMensajeFormateado("SISTEMA", "Rechazaste la recepción de: " + nombreArchivo, Color.Orange, HorizontalAlignment.Left);
             }));
         }
 
@@ -124,45 +138,29 @@ namespace winProyComunicacion
         {
             if (mensaje.StartsWith("[IMG]"))
             {
-                MostrarImagen(
-                    mensaje.Substring(5));
-
+                MostrarImagen(mensaje.Substring(5));
                 return;
             }
 
             if (mensaje.StartsWith("[VIDEO]"))
             {
-                AbrirArchivo(
-                    mensaje.Substring(7),
-                    "video");
+                AbrirArchivo(mensaje.Substring(7), "video");
                 return;
             }
 
             if (mensaje.StartsWith("[AUDIO]"))
             {
-                AbrirArchivo(
-                    mensaje.Substring(7),
-                    "audio");
+                AbrirArchivo(mensaje.Substring(7), "audio");
                 return;
             }
 
             if (mensaje.StartsWith("[Archivo recibido]"))
             {
-                // Extraer nombre del archivo
-                string nombreArchivo = mensaje.Substring("[Archivo recibido] ".Length);
-                AgregarMensajeFormateado(
-                    "OTRO",
-                    mensaje,
-                    Color.ForestGreen,
-                    HorizontalAlignment.Left);
+                AgregarMensajeFormateado("OTRO", mensaje, Color.ForestGreen, HorizontalAlignment.Left);
                 return;
             }
 
-            AgregarMensajeFormateado(
-                "OTRO",
-                mensaje,
-                Color.ForestGreen,
-                HorizontalAlignment.Left);
+            AgregarMensajeFormateado("OTRO", mensaje, Color.ForestGreen, HorizontalAlignment.Left);
         }
 
         private void MostrarImagen(string ruta)
@@ -176,23 +174,20 @@ namespace winProyComunicacion
             try
             {
                 Form visor = new Form();
-
-                PictureBox pb =
-                    new PictureBox();
-
+                PictureBox pb = new PictureBox();
                 pb.Dock = DockStyle.Fill;
+                pb.SizeMode = PictureBoxSizeMode.Zoom;
 
-                pb.Image =
-                    Image.FromFile(ruta);
-
-                pb.SizeMode =
-                    PictureBoxSizeMode.Zoom;
+                // Método infalible: Leer los bytes a la memoria RAM y soltar el archivo
+                byte[] bytesImagen = File.ReadAllBytes(ruta);
+                using (MemoryStream ms = new MemoryStream(bytesImagen))
+                {
+                    pb.Image = Image.FromStream(ms);
+                }
 
                 visor.Controls.Add(pb);
-
                 visor.Width = 600;
                 visor.Height = 400;
-
                 visor.Show();
             }
             catch (Exception ex)
@@ -211,13 +206,12 @@ namespace winProyComunicacion
 
             try
             {
-                // Abrir con el programa predeterminado del sistema
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = ruta,
                     UseShellExecute = true
                 });
-                
+
                 AgregarMensajeFormateado("SISTEMA", $"Abriendo {tipo} con programa predeterminado", Color.Gray, HorizontalAlignment.Left);
             }
             catch (Exception ex)
@@ -236,50 +230,37 @@ namespace winProyComunicacion
 
             string mensaje = txtMensaje.Text.Trim();
 
-            // VALIDACIÓN: Si el mensaje está vacío o son puros espacios, no hace nada
             if (string.IsNullOrWhiteSpace(mensaje))
             {
-                txtMensaje.Clear(); // Limpiamos por si el usuario tecleó puros espacios
+                txtMensaje.Clear();
                 txtMensaje.Focus();
                 return;
             }
 
             Enlace.enviarMensaje(mensaje);
-
-            // Usamos nuestra nueva función: "YO" en Azul y a la Derecha
             AgregarMensajeFormateado("YO", mensaje, Color.Blue, HorizontalAlignment.Right);
-
             txtMensaje.Clear();
-            txtMensaje.Focus(); // Para seguir escribiendo sin tocar el mouse
+            txtMensaje.Focus();
         }
 
         private void AgregarMensajeFormateado(string remitente, string mensaje, Color colorRemitente, HorizontalAlignment alineacion)
         {
-            // 1. Movemos el cursor al final del texto actual
             rchConversacion.SelectionStart = rchConversacion.TextLength;
             rchConversacion.SelectionLength = 0;
-
-            // 2. Alineamos (Izquierda o Derecha)
             rchConversacion.SelectionAlignment = alineacion;
 
-            // 3. Obtenemos hora acortada
             string hora = DateTime.Now.ToString("HH:mm");
 
-            // 4. Escribimos el Nombre (Ej: "YO:") en Negrita y con color
             rchConversacion.SelectionColor = colorRemitente;
             rchConversacion.SelectionFont = new Font(rchConversacion.Font, FontStyle.Bold);
             rchConversacion.SelectedText = remitente + " [" + hora + "]:" + Environment.NewLine;
 
-            // 5. Escribimos el Mensaje en texto normal y color negro
             rchConversacion.SelectionColor = Color.Black;
             rchConversacion.SelectionFont = new Font(rchConversacion.Font, FontStyle.Regular);
             rchConversacion.SelectedText = mensaje + Environment.NewLine + Environment.NewLine;
 
-            // 6. Hacemos scroll automático hacia abajo
             rchConversacion.ScrollToCaret();
         }
-
-
 
         private void btnConectar_Click(object sender, EventArgs e)
         {
@@ -287,7 +268,6 @@ namespace winProyComunicacion
             {
                 if (!conectado)
                 {
-                    // Conectar
                     if (string.IsNullOrWhiteSpace(cmbPuerto.Text))
                     {
                         MessageBox.Show("Seleccione un puerto");
@@ -305,8 +285,6 @@ namespace winProyComunicacion
                     velocidadActual = velocidad;
 
                     Enlace.InicializaPuerto(puerto, velocidad);
-
-                    // Enviar handshake con velocidad
                     Enlace.enviarHandshake(velocidad);
 
                     conectado = true;
@@ -318,7 +296,6 @@ namespace winProyComunicacion
                 }
                 else
                 {
-                    // Desconectar
                     Enlace.DetenerEnvio();
                     Enlace.CerrarPuerto();
 
@@ -333,6 +310,7 @@ namespace winProyComunicacion
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
+
                 if (conectado)
                 {
                     conectado = false;
@@ -348,86 +326,63 @@ namespace winProyComunicacion
             if (e.KeyCode == Keys.Enter)
             {
                 e.SuppressKeyPress = true;
-
                 btnEnviaMensaje.PerformClick();
             }
         }
 
         private string CalcularTiempoEstimado(long tamañoBytes, int velocidadBaudios)
         {
-            // Calcular velocidad efectiva (aprox 10 bits por byte debido a start/stop bits)
             double velocidadBytesPorSeg = velocidadBaudios / 10.0;
             double tiempoSegundos = tamañoBytes / velocidadBytesPorSeg;
-            
+
             if (tiempoSegundos < 60)
-            {
                 return $"{tiempoSegundos:F1} segundos";
-            }
             else if (tiempoSegundos < 3600)
-            {
-                double minutos = tiempoSegundos / 60;
-                return $"{minutos:F1} minutos";
-            }
+                return $"{tiempoSegundos / 60:F1} minutos";
             else
-            {
-                double horas = tiempoSegundos / 3600;
-                return $"{horas:F1} horas";
-            }
+                return $"{tiempoSegundos / 3600:F1} horas";
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
             if (Enlace.sPuerto == null || !Enlace.sPuerto.IsOpen)
             {
-                MessageBox.Show(
-                    "Primero conecta el puerto");
-
+                MessageBox.Show("Primero conecta el puerto");
                 return;
             }
 
-            OpenFileDialog abrir =
-                new OpenFileDialog();
+            OpenFileDialog abrir = new OpenFileDialog();
+            abrir.Filter = "Todos los archivos|*.*";
 
-            abrir.Filter =
-                "Todos los archivos|*.*";
-
-            if (abrir.ShowDialog()
-                == DialogResult.OK)
+            if (abrir.ShowDialog() == DialogResult.OK)
             {
                 FileInfo info = new FileInfo(abrir.FileName);
                 long tamaño = info.Length;
-                
-                // Calcular tiempo estimado
                 string tiempoEstimado = CalcularTiempoEstimado(tamaño, velocidadActual);
-                
-                // Mostrar advertencia para archivos grandes
+
                 DialogResult resultado = DialogResult.Yes;
-                if (tamaño > 1024 * 1024) // Más de 1 MB
+
+                if (tamaño > 1024 * 1024)
                 {
                     string mensaje = $"El archivo tiene un tamaño de {tamaño / 1024.0 / 1024.0:F2} MB.\n" +
-                                   $"Tiempo estimado de transferencia: {tiempoEstimado}\n" +
-                                   $"¿Desea continuar?";
-                    resultado = MessageBox.Show(mensaje, "Advertencia: Archivo grande", 
+                                     $"Tiempo estimado de transferencia: {tiempoEstimado}\n" +
+                                     $"¿Desea continuar?";
+                    resultado = MessageBox.Show(mensaje, "Advertencia: Archivo grande",
                                                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 }
-                
+
                 if (resultado == DialogResult.Yes)
                 {
                     prgArchivo.Value = 0;
-                    Enlace.EnviarArchivo(
-                        abrir.FileName);
+                    Enlace.EnviarArchivo(abrir.FileName);
 
                     AgregarMensajeFormateado(
                         "YO",
-                        "Archivo enviado: " +
-                        Path.GetFileName(
-                            abrir.FileName) +
-                        $" ({tamaño / 1024.0 / 1024.0:F2} MB, Tiempo estimado: {tiempoEstimado})",
+                        $"Archivo enviado: {Path.GetFileName(abrir.FileName)} ({tamaño / 1024.0 / 1024.0:F2} MB, Tiempo estimado: {tiempoEstimado})",
                         Color.Blue,
                         HorizontalAlignment.Right);
                 }
             }
         }
-
     }
 }

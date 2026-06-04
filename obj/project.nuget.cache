@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "5krbomAA9jI=",
+  "dgSpecHash": "79mNJuHixcQ=",
   "success": true,
-  "projectFilePath": "C:\\Users\\UJED\\Documents\\TrabajoRedes - copia\\winProyComunicacion1 - copia\\winProyComunicacion.csproj",
+  "projectFilePath": "C:\\Users\\UJED\\Documents\\TrabajoRedes\\winProyComunicacion1 - copia\\winProyComunicacion1 - copia\\winProyComunicacion.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\UJED\\.nuget\\packages\\runtime.android-arm.runtime.native.system.io.ports\\10.0.7\\runtime.android-arm.runtime.native.system.io.ports.10.0.7.nupkg.sha512",
     "C:\\Users\\UJED\\.nuget\\packages\\runtime.android-arm64.runtime.native.system.io.ports\\10.0.7\\runtime.android-arm64.runtime.native.system.io.ports.10.0.7.nupkg.sha512",
